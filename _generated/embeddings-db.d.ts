@@ -5,4 +5,5 @@ export interface Embeddings {
 
 export interface DB {
   embeddings: Embeddings;
+  embeddings_vec: Embeddings;
 }

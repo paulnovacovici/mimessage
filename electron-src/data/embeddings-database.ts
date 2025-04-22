@@ -9,8 +9,8 @@ export class EmbeddingsDatabase extends BaseDatabase<EmbeddingsDb> {
   countEmbeddings = async (): Promise<number> => {
     await this.initialize();
     const result = await this.db
-      .selectFrom("embeddings")
-      .select((e) => e.fn.count("embeddings.text").as("count"))
+      .selectFrom("embeddings_vec")
+      .select((e) => e.fn.count("embeddings_vec.text").as("count"))
       .execute();
     return result[0].count as number;
   };
@@ -43,7 +43,9 @@ export class EmbeddingsDatabase extends BaseDatabase<EmbeddingsDb> {
       return;
     }
     await this.initialize();
-    const result = await this.db.selectFrom("embeddings").selectAll().execute();
+    const result = await this.db.selectFrom("embeddings_vec").selectAll().execute();
+
+    console.log(`Loaded ${result.length} embeddings into memory`);
 
     this.embeddingsCache = result.map((r) => {
       const embedding = r.embedding!;
@@ -67,7 +69,7 @@ export class EmbeddingsDatabase extends BaseDatabase<EmbeddingsDb> {
   };
   getEmbeddingByText = async (text: string) => {
     await this.initialize();
-    const result = await this.db.selectFrom("embeddings").where("text", "=", text).selectAll().executeTakeFirst();
+    const result = await this.db.selectFrom("embeddings_vec").where("text", "=", text).selectAll().executeTakeFirst();
     if (!result) {
       return null;
     }
@@ -84,12 +86,12 @@ export class EmbeddingsDatabase extends BaseDatabase<EmbeddingsDb> {
 
   getAllText = async (): Promise<string[]> => {
     await this.initialize();
-    const result = await this.db.selectFrom("embeddings").select("text").execute();
+    const result = await this.db.selectFrom("embeddings_vec").select("text").execute();
     return result.map((l) => l.text!);
   };
   getExistingText = async (text: string[]): Promise<string[]> => {
     await this.initialize();
-    const result = await this.db.selectFrom("embeddings").select("text").where("text", "in", text).execute();
+    const result = await this.db.selectFrom("embeddings_vec").select("text").where("text", "in", text).execute();
     return result.map((l) => l.text!);
   };
 
@@ -104,7 +106,7 @@ export class EmbeddingsDatabase extends BaseDatabase<EmbeddingsDb> {
       };
     });
     const insert = this.db
-      .insertInto("embeddings")
+      .insertInto("embeddings_vec")
       .values(values)
       .onConflict((oc) => oc.column("text").doNothing());
     await insert.execute();

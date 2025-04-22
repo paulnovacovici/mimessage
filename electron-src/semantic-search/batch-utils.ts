@@ -47,7 +47,7 @@ interface PendingVector {
   input: string;
 }
 
-export const OPENAI_EMBEDDING_MODEL = "text-embedding-ada-002";
+export const OPENAI_EMBEDDING_MODEL = "text-embedding-3-small";
 
 // create a rate limiter that allows up to 30 API calls per second,
 // with max concurrency of 10

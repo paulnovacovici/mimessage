@@ -25,7 +25,7 @@ export const OpenAiKey = () => {
   const onSubmit = () => {
     const key = ref.current?.value;
     if (key) {
-      if (!key.startsWith("sk-") || key.length !== 51) {
+      if (!key.startsWith("sk-")) {
         toast("Invalid OpenAI API key - must start with sk- and be 51 chars long", { type: "error" });
         return;
       }
@@ -89,7 +89,7 @@ const SemanticSearchModal = ({
       toast("Please enter all API information", { type: "error" });
       return;
     }
-    if (!key.startsWith("sk-") || key.length !== 51) {
+    if (!key.startsWith("sk-")) {
       toast("Invalid OpenAI API key - must start with sk- and be 51 chars long", { type: "error" });
       return;
     }
