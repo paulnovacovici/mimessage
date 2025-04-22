@@ -1,46 +1,77 @@
 import React from "react";
-import type { OptionsProp, CallbacksProp } from "react-wordcloud";
-import ReactWordcloud from "react-wordcloud";
+import WordCloud from "react-d3-cloud";
 import { useSlowWrappedStats } from "../../hooks/dataHooks";
 import { CHART_HEIGHT, SectionHeader, SectionWrapper } from "./Containers";
 import Box from "@mui/material/Box";
 import { ErrorBoundary } from "../ErrorBoundary";
 import { LinearProgress } from "@mui/material";
 
-const options = {
-  enableOptimizations: true,
-  deterministic: true,
-  fontSizes: [15, 80],
-  padding: 5,
-  rotations: 0,
-  fontFamily: "arbeit",
-} as OptionsProp;
+/* — helpers — */
+const FONT_FAMILY = "arbeit";
+const PADDING = 5;
+const rotate = 0;
+const fill = () => "#5871f5";
 
-const callbacks = {
-  getWordColor: () => {
-    return "#5871f5";
-  },
-} as CallbacksProp;
+const makeFontSize =
+  (min = 15, max = 80) =>
+  (word: { value: number }) => {
+    // simple log‑scale
+    return ((Math.log2(word.value) - 1) / /* spread */ 10) * (max - min) + min;
+  };
+
 export const SimpleWordcloud = () => {
   const { data: wrappedStats, isLoading } = useSlowWrappedStats();
+  const topOneHundred = wrappedStats?.topOneHundred ?? [];
 
-  const topOneHundred = wrappedStats?.topOneHundred;
-  const data = React.useMemo(
+  /* transform once */
+  const words = React.useMemo(
     () =>
-      (
-        topOneHundred?.map((l) => ({
-          text: l[0],
-          value: l[1],
-        })) || []
-      ).slice(0, 50),
+      topOneHundred
+        .slice(0, 50) // top‑50
+        .map(([text, value]) => ({ text, value })),
     [topOneHundred],
   );
+
+  /* get live width / height of the Box so the cloud resizes responsively */
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [{ width, height }, setSize] = React.useState({
+    width: 0,
+    height: 0,
+  });
+
+  React.useLayoutEffect(() => {
+    const measure = () => {
+      if (ref.current) {
+        setSize({
+          width: ref.current.offsetWidth,
+          height: ref.current.offsetHeight,
+        });
+      }
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
   return (
     <SectionWrapper sx={{ width: "100%", height: CHART_HEIGHT }}>
       <SectionHeader>Wordcloud</SectionHeader>
       {isLoading && <LinearProgress />}
-      <Box sx={{ width: "100%", height: "90%" }}>
-        <ErrorBoundary>{data && <ReactWordcloud callbacks={callbacks} options={options} words={data} />}</ErrorBoundary>
+      <Box ref={ref} sx={{ width: "100%", height: "90%" }}>
+        <ErrorBoundary>
+          {Boolean(words.length) && width > 0 && height > 0 && (
+            <WordCloud
+              data={words}
+              width={width}
+              height={height}
+              font={FONT_FAMILY}
+              fontSize={makeFontSize()}
+              padding={PADDING}
+              rotate={rotate}
+              fill={fill}
+            />
+          )}
+        </ErrorBoundary>
       </Box>
     </SectionWrapper>
   );

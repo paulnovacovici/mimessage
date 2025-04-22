@@ -42,22 +42,8 @@ export class EmbeddingsDatabase extends BaseDatabase<EmbeddingsDb> {
     if (this.embeddingsCache.length) {
       return;
     }
+    // TODO: Can deprecate this as we are using index on disk.
     await this.initialize();
-    const result = await this.db.selectFrom("embeddings_vec").selectAll().execute();
-
-    console.log(`Loaded ${result.length} embeddings into memory`);
-
-    this.embeddingsCache = result.map((r) => {
-      const embedding = r.embedding!;
-      return {
-        text: r.text,
-        embedding: new Float32Array(
-          embedding.buffer,
-          embedding.byteOffset,
-          embedding.byteLength / Float32Array.BYTES_PER_ELEMENT,
-        ),
-      };
-    });
   };
   getAllEmbeddings = async () => {
     await this.loadVectorsIntoMemory();

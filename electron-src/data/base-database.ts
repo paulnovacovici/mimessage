@@ -2,6 +2,7 @@ import { Kysely } from "kysely";
 import logger from "../utils/logger";
 import type { Database } from "better-sqlite3";
 import SqliteDb from "better-sqlite3";
+import * as sqliteVec from "sqlite-vec";
 import { SqliteDialect } from "kysely";
 import type { KyselyConfig } from "kysely/dist/cjs/kysely";
 import { format } from "sql-formatter";
@@ -70,6 +71,8 @@ export class BaseDatabase<T> {
       this.isSettingUpDb = true;
       logger.info(`Setting up ${this.name}`);
       const sqliteDb = new SqliteDb(this.path, { fileMustExist: false });
+      sqliteVec.load(sqliteDb);
+
       const dialect = new SqliteDialect({ database: sqliteDb });
       const options: KyselyConfig = {
         dialect,
@@ -103,6 +106,7 @@ export class BaseDatabase<T> {
       this.dbWriter = db;
       return true;
     } catch (e) {
+      console.log(e);
       logger.error(e);
       return false;
     } finally {
