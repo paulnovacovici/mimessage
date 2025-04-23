@@ -2,7 +2,7 @@ import type { DB as EmbeddingsDb } from "../../_generated/embeddings-db";
 import logger from "../utils/logger";
 import { embeddingsDbPath } from "../utils/constants";
 import BaseDatabase from "./base-database";
-import { cosineSimilarity, dotSimilarity, euclideanSimilarity } from "../semantic-search/vector-comparison";
+import { sql } from "kysely";
 
 export class EmbeddingsDatabase extends BaseDatabase<EmbeddingsDb> {
   embeddingsCache: { text: string; embedding: Float32Array }[] = [];
@@ -15,29 +15,26 @@ export class EmbeddingsDatabase extends BaseDatabase<EmbeddingsDb> {
     return result[0].count as number;
   };
 
-  calculateSimilarity = async (
-    embedding: Float32Array,
-    comparisonFunction: "cosine" | "euclidean" | "dot" = "cosine",
-  ) => {
-    const allEmbeddings = await this.getAllEmbeddings();
-    const func =
-      comparisonFunction === "cosine"
-        ? cosineSimilarity
-        : comparisonFunction === "euclidean"
-        ? euclideanSimilarity
-        : dotSimilarity;
-    const similarities = allEmbeddings.map((e) => {
-      const similarity = func(embedding!, e.embedding);
-      return { similarity, text: e.text };
-    });
-    // cosine should be sorted biggest to smallest, euclidean and dot smallest to biggest
-    if (comparisonFunction === "cosine") {
-      similarities.sort((a, b) => b.similarity - a.similarity);
-    } else {
-      similarities.sort((a, b) => a.similarity - b.similarity);
-    }
-    return similarities.slice(0, 100).map((l) => l.text!);
+  calculateSimilarity = async (embedding: Float32Array, limit = 100): Promise<{ text: string; distance: number }[]> => {
+    await this.initialize();
+
+    // Convert the vector to a BLOB for SQLite-vec
+    const embeddingBuffer = Buffer.from(embedding.buffer);
+
+    const results = await this.db
+      .selectFrom("embeddings_vec")
+      .select(["text", sql<number>`distance`.as("distance")])
+      .where(sql`embedding MATCH ${embeddingBuffer}`)
+      .orderBy("distance", "asc")
+      .limit(limit)
+      .execute();
+
+    return results.map((r) => ({
+      text: r.text!,
+      distance: r.distance as number,
+    }));
   };
+
   loadVectorsIntoMemory = async () => {
     if (this.embeddingsCache.length) {
       return;
@@ -45,6 +42,7 @@ export class EmbeddingsDatabase extends BaseDatabase<EmbeddingsDb> {
     // TODO: Can deprecate this as we are using index on disk.
     await this.initialize();
   };
+
   getAllEmbeddings = async () => {
     await this.loadVectorsIntoMemory();
     return this.embeddingsCache;

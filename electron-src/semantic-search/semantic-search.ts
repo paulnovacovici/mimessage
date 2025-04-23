@@ -99,32 +99,23 @@ interface SemanticQueryOpts {
 }
 
 export async function semanticQuery({ queryText, openAiKey }: SemanticQueryOpts) {
-  const existingEmbedding = await dbWorker.embeddingsWorker.getEmbeddingByText(queryText);
-  let floatEmbedding = existingEmbedding?.embedding;
+  let now = performance.now();
+  const configuration = new Configuration({
+    apiKey: openAiKey,
+  });
+  // first look up embedding in db in case we've already done it
+  const openai = new OpenAIApi(configuration);
+  const openAiResponse = await openai.createEmbedding({
+    input: queryText,
+    model: OPENAI_EMBEDDING_MODEL,
+  });
+  const embed = openAiResponse.data;
+  const embedding = embed.data?.[0]?.embedding;
+  const floatEmbedding = new Float32Array(embedding);
 
-  if (!existingEmbedding) {
-    const now = performance.now();
-    const configuration = new Configuration({
-      apiKey: openAiKey,
-    });
-    // first look up embedding in db in case we've already done it
-    const openai = new OpenAIApi(configuration);
-    const openAiResponse = await openai.createEmbedding({
-      input: queryText,
-      model: OPENAI_EMBEDDING_MODEL,
-    });
-    logger.info(`Got embedding from OpenAI in ${performance.now() - now}ms`);
-    const embed = openAiResponse.data;
-    const embedding = embed.data?.[0]?.embedding;
-    if (!embedding) {
-      return [];
-    }
-    // save embedding
-    await dbWorker.embeddingsWorker.insertEmbeddings([{ values: embedding, input: queryText }]);
-    floatEmbedding = new Float32Array(embedding);
-  }
+  logger.info(`Got embedding from OpenAI in ${performance.now() - now}ms`);
 
-  const now = performance.now();
+  now = performance.now();
   const calculateSimilarity = await dbWorker.embeddingsWorker.calculateSimilarity(floatEmbedding!);
   logger.info(`Calculated similarity in ${performance.now() - now}ms`);
   return calculateSimilarity;
@@ -179,7 +170,7 @@ handleIpc(
         queryText: searchTerm,
       });
       logger.info(`Got ${messageTexts.length} results in ${performance.now() - now}ms`);
-      const guids = await dbWorker.worker.getMessageGuidsFromText(messageTexts);
+      const guids = await dbWorker.worker.getMessageGuidsFromText(messageTexts.map((m) => m.text));
       logger.info(`Got ${guids.length} guids from text`);
       return await dbWorker.worker.fullTextMessageSearchWithGuids(
         guids,

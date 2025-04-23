@@ -45,7 +45,7 @@ const GloablSearchInput = () => {
     const value = input?.value;
     setGlobalSearch(value || "");
   }, [setGlobalSearch]);
-  const onChangeDebounced = useMemo(() => debounce(onFilterChange, 450), [onFilterChange]);
+  const onChangeDebounced = useMemo(() => debounce(onFilterChange, 1000), [onFilterChange]);
 
   return (
     <Box
